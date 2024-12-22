@@ -7,6 +7,8 @@ from rest_framework.authentication import TokenAuthentication
 from .models import Menu, Booking, MenuItem
 from .serializers import MenuSerializer, MenuItemSerializer, BookingSerializer, UserSerializer 
 from django.contrib.auth.models import User
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
 # Create your views here.
 
@@ -19,11 +21,11 @@ def msg(request):
 def index(request):
    return render(request, 'index.html', {})
 
-class MenuItemsView(generics.ListCreateAPIView):
-    authentication_classes = [TokenAuthentication]  # Ensure TokenAuthentication is used
-    permission_classes = [IsAuthenticated]
-    queryset = MenuItem.objects.all()
-    serializer_class = MenuItemSerializer
+class MenuItemsView(APIView):
+    def get(self, request):
+        items = Menu.objects.all()
+        serializer = MenuItemSerializer(items, many=True)
+        return Response(serializer.data)
 
 class SingleMenuItemView(generics.RetrieveUpdateAPIView, generics.DestroyAPIView):
    queryset = Menu.objects.all()
