@@ -1,0 +1,121 @@
+name: Django CI (Simple)
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Find Django project directory
+      id: find-django
+      run: |
+        if [ -f "manage.py" ]; then
+          echo "django_dir=." >> $GITHUB_OUTPUT
+          echo "Found Django project in root directory"
+        elif [ -f "littlelemon/manage.py" ]; then
+          echo "django_dir=littlelemon" >> $GITHUB_OUTPUT
+          echo "Found Django project in littlelemon directory"
+        else
+          echo "ERROR: Could not find manage.py"
+          find . -name "manage.py" -type f
+          exit 1
+        fi
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        cd ${{ steps.find-django.outputs.django_dir }}
+        if [ -f "requirements.txt" ]; then
+          pip install -r requirements.txt
+        else
+          # Fallback installation
+          pip install django djangorestframework djoser mysql-connector-python
+        fi
+    
+    - name: Run Django checks
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        python manage.py check
+    
+    - name: Run migrations
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        python manage.py migrate
+    
+    - name: Run tests
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        python manage.py test
+
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    - name: Find Django project directory
+      id: find-django
+      run: |
+        if [ -f "manage.py" ]; then
+          echo "django_dir=." >> $GITHUB_OUTPUT
+        elif [ -f "littlelemon/manage.py" ]; then
+          echo "django_dir=littlelemon" >> $GITHUB_OUTPUT
+        else
+          echo "django_dir=." >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort bandit safety
+    
+    - name: Run flake8 (syntax check)
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=venv,.venv,env,.env,migrations
+    
+    - name: Run flake8 (style check)
+      continue-on-error: true
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        flake8 . --count --exit-zero --statistics --exclude=venv,.venv,env,.env,migrations
+    
+    - name: Check code formatting (black)
+      continue-on-error: true
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        black --check --diff . --exclude="/(venv|.venv|env|.env|migrations)/"
+    
+    - name: Check import sorting (isort)
+      continue-on-error: true
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        isort --check-only --diff . --skip-glob="*/venv/*" --skip-glob="*/.venv/*" --skip-glob="*/env/*" --skip-glob="*/.env/*" --skip-glob="*/migrations/*"
+    
+    - name: Security check (bandit)
+      continue-on-error: true
+      run: |
+        cd ${{ steps.find-django.outputs.django_dir }}
+        bandit -r . -x ./venv,./env,./.venv,./.env,./migrations
