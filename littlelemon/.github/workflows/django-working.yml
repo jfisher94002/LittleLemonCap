@@ -1,0 +1,73 @@
+name: Django CI (Working)
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install django djangorestframework djoser mysql-connector-python
+    
+    - name: Detect Django project structure
+      id: detect
+      run: |
+        if [ -f "manage.py" ]; then
+          echo "django_dir=." >> $GITHUB_OUTPUT
+          echo "Working directory: root"
+        elif [ -f "littlelemon/manage.py" ]; then
+          echo "django_dir=littlelemon" >> $GITHUB_OUTPUT
+          echo "Working directory: littlelemon"
+        else
+          echo "ERROR: Cannot find manage.py"
+          exit 1
+        fi
+    
+    - name: Run Django tests
+      working-directory: ${{ steps.detect.outputs.django_dir }}
+      env:
+        DJANGO_SETTINGS_MODULE: littlelemon.settings
+        PYTHONPATH: .
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
+        
+        # Test Django setup
+        python -c "import django; django.setup(); print('Django OK')"
+        
+        # Run Django management commands
+        python manage.py check --deploy
+        python manage.py migrate --run-syncdb
+        python manage.py test --verbosity=2
+    
+    - name: Debug on failure
+      if: failure()
+      working-directory: ${{ steps.detect.outputs.django_dir }}
+      run: |
+        echo "=== Debug Information ==="
+        pwd
+        ls -la
+        echo "Python path:"
+        python -c "import sys; print('\n'.join(sys.path))"
+        echo "Django check:"
+        python -c "import django; print(django.get_version())"
+        echo "Settings check:"
+        python -c "import os; os.environ['DJANGO_SETTINGS_MODULE']='littlelemon.settings'; import django; django.setup(); from django.conf import settings; print('INSTALLED_APPS OK')" || echo "Settings failed"

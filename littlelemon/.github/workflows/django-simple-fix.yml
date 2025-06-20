@@ -1,0 +1,53 @@
+name: Django CI (Simple Fix)
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install django djangorestframework djoser mysql-connector-python
+    
+    - name: Find and test Django project
+      run: |
+        # Find manage.py
+        MANAGE_PATH=$(find . -name "manage.py" -type f | head -1)
+        if [ -z "$MANAGE_PATH" ]; then
+          echo "No manage.py found!"
+          exit 1
+        fi
+        
+        # Get directory containing manage.py
+        DJANGO_DIR=$(dirname "$MANAGE_PATH")
+        echo "Django project found in: $DJANGO_DIR"
+        
+        # Change to Django directory
+        cd "$DJANGO_DIR"
+        
+        # Export Django settings
+        export DJANGO_SETTINGS_MODULE=littlelemon.settings
+        export PYTHONPATH=".:$PYTHONPATH"
+        
+        echo "Current directory: $(pwd)"
+        echo "DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
+        
+        # Test Django setup
+        python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'littlelemon.settings'); import django; django.setup(); print('Django configured successfully')"
+        
+        # Run tests with explicit settings
+        python manage.py test --settings=littlelemon.settings

@@ -1,0 +1,100 @@
+name: Django CI (Failsafe)
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Debug repository structure
+      run: |
+        echo "=== Repository Structure ==="
+        find . -name "manage.py" -type f
+        find . -name "settings.py" -type f
+        ls -la
+        echo "=== Current Directory ==="
+        pwd
+        echo "=== Environment ==="
+        env | grep DJANGO || echo "No DJANGO env vars"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install django djangorestframework djoser mysql-connector-python
+        # Try to install from requirements.txt if it exists
+        find . -name "requirements.txt" -exec pip install -r {} \; || true
+    
+    - name: Setup Django environment and run tests
+      run: |
+        # Find manage.py and determine project structure
+        MANAGE_PY=$(find . -name "manage.py" -type f | head -1)
+        
+        if [ -z "$MANAGE_PY" ]; then
+          echo "ERROR: No manage.py found!"
+          exit 1
+        fi
+        
+        # Get the directory containing manage.py
+        DJANGO_DIR=$(dirname "$MANAGE_PY")
+        echo "Django project found in: $DJANGO_DIR"
+        
+        # Change to Django directory
+        cd "$DJANGO_DIR"
+        
+        # Set DJANGO_SETTINGS_MODULE based on settings.py location
+        if [ -f "littlelemon/settings.py" ]; then
+          export DJANGO_SETTINGS_MODULE="littlelemon.settings"
+        elif [ -f "*/settings.py" ]; then
+          SETTINGS_FILE=$(find . -name "settings.py" -type f | head -1)
+          SETTINGS_DIR=$(dirname "$SETTINGS_FILE" | sed 's|./||')
+          export DJANGO_SETTINGS_MODULE="${SETTINGS_DIR}.settings"
+        else
+          echo "ERROR: No settings.py found!"
+          exit 1
+        fi
+        
+        echo "Using DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
+        
+        # Verify Django setup
+        python -c "import django; django.setup(); print('Django setup successful')"
+        
+        # Run Django commands
+        python manage.py check
+        python manage.py migrate
+        python manage.py test
+    
+    - name: Test specific failing modules (if main test fails)
+      continue-on-error: true
+      run: |
+        MANAGE_PY=$(find . -name "manage.py" -type f | head -1)
+        DJANGO_DIR=$(dirname "$MANAGE_PY")
+        cd "$DJANGO_DIR"
+        
+        if [ -f "littlelemon/settings.py" ]; then
+          export DJANGO_SETTINGS_MODULE="littlelemon.settings"
+        else
+          SETTINGS_FILE=$(find . -name "settings.py" -type f | head -1)
+          SETTINGS_DIR=$(dirname "$SETTINGS_FILE" | sed 's|./||')
+          export DJANGO_SETTINGS_MODULE="${SETTINGS_DIR}.settings"
+        fi
+        
+        echo "Testing individual modules..."
+        python manage.py test restaurant.tests.test_models || echo "test_models failed"
+        python manage.py test restaurant.tests.test_views || echo "test_views failed"
+        python manage.py test restaurant.tests.tests || echo "tests failed"

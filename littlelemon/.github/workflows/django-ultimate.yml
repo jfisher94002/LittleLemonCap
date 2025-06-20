@@ -1,0 +1,94 @@
+name: Django CI (Ultimate Fix)
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install django djangorestframework djoser mysql-connector-python
+    
+    - name: Setup and test Django project
+      env:
+        PYTHONPATH: .
+      run: |
+        # Find Django project
+        if [ -f "manage.py" ]; then
+          DJANGO_DIR="."
+        elif [ -f "littlelemon/manage.py" ]; then
+          DJANGO_DIR="littlelemon"
+          cd littlelemon
+        else
+          echo "ERROR: Cannot find manage.py"
+          find . -name "manage.py"
+          exit 1
+        fi
+        
+        echo "Working in directory: $(pwd)"
+        
+        # Force set Django settings
+        export DJANGO_SETTINGS_MODULE=littlelemon.settings
+        
+        # Verify Django installation
+        python -c "import django; print(f'Django version: {django.get_version()}')"
+        
+        # Initialize Django
+        python -c "
+import os
+import django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'littlelemon.settings')
+django.setup()
+print('Django setup completed successfully')
+from django.conf import settings
+print(f'INSTALLED_APPS: {settings.INSTALLED_APPS}')
+"
+        
+        # Run tests with explicit settings
+        python manage.py test --settings=littlelemon.settings --verbosity=2
+    
+    - name: Alternative test approach (if main fails)
+      if: failure()
+      env:
+        DJANGO_SETTINGS_MODULE: littlelemon.settings
+        PYTHONPATH: .
+      run: |
+        if [ -f "littlelemon/manage.py" ]; then
+          cd littlelemon
+        fi
+        
+        echo "Trying alternative test approach..."
+        
+        # Test individual components
+        python -c "
+import os
+import sys
+import django
+from django.conf import settings
+from django.test.utils import get_runner
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'littlelemon.settings')
+django.setup()
+
+# Run specific test modules
+from django.core.management import execute_from_command_line
+execute_from_command_line(['manage.py', 'test', 'restaurant', '--verbosity=2'])
+"
