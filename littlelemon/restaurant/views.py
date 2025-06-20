@@ -2,22 +2,15 @@ from django.contrib.auth.models import User
 from django.shortcuts import render
 from rest_framework import generics, permissions, viewsets
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.decorators import (
-    api_view,
-    authentication_classes,
-    permission_classes,
-)
+from rest_framework.decorators import (api_view, authentication_classes,
+                                       permission_classes)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Booking, Menu
-from .serializers import (
-    BookingSerializer,
-    MenuItemSerializer,
-    MenuSerializer,
-    UserSerializer,
-)
+from .serializers import (BookingSerializer, MenuItemSerializer,
+                          MenuSerializer, UserSerializer)
 
 # Create your views here.
 

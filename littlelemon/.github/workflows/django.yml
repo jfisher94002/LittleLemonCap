@@ -36,6 +36,8 @@ jobs:
         fi
     
     - name: Run migrations
+      env:
+        DJANGO_SETTINGS_MODULE: littlelemon.settings
       run: |
         # Try to find manage.py in different locations
         if [ -f manage.py ]; then
@@ -45,6 +47,8 @@ jobs:
         fi
     
     - name: Run tests
+      env:
+        DJANGO_SETTINGS_MODULE: littlelemon.settings
       run: |
         # Try to find manage.py in different locations
         if [ -f manage.py ]; then
@@ -54,6 +58,8 @@ jobs:
         fi
     
     - name: Run Django system checks
+      env:
+        DJANGO_SETTINGS_MODULE: littlelemon.settings
       run: |
         # Try to find manage.py in different locations
         if [ -f manage.py ]; then

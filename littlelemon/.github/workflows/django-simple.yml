@@ -27,9 +27,11 @@ jobs:
       run: |
         if [ -f "manage.py" ]; then
           echo "django_dir=." >> $GITHUB_OUTPUT
+          echo "settings_module=littlelemon.settings" >> $GITHUB_OUTPUT
           echo "Found Django project in root directory"
         elif [ -f "littlelemon/manage.py" ]; then
           echo "django_dir=littlelemon" >> $GITHUB_OUTPUT
+          echo "settings_module=littlelemon.settings" >> $GITHUB_OUTPUT
           echo "Found Django project in littlelemon directory"
         else
           echo "ERROR: Could not find manage.py"
@@ -49,16 +51,22 @@ jobs:
         fi
     
     - name: Run Django checks
+      env:
+        DJANGO_SETTINGS_MODULE: ${{ steps.find-django.outputs.settings_module }}
       run: |
         cd ${{ steps.find-django.outputs.django_dir }}
         python manage.py check
     
     - name: Run migrations
+      env:
+        DJANGO_SETTINGS_MODULE: ${{ steps.find-django.outputs.settings_module }}
       run: |
         cd ${{ steps.find-django.outputs.django_dir }}
         python manage.py migrate
     
     - name: Run tests
+      env:
+        DJANGO_SETTINGS_MODULE: ${{ steps.find-django.outputs.settings_module }}
       run: |
         cd ${{ steps.find-django.outputs.django_dir }}
         python manage.py test
