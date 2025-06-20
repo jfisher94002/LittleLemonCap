@@ -1,0 +1,42 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests before deployment
+      run: |
+        python manage.py test
+    
+    - name: Collect static files
+      run: |
+        python manage.py collectstatic --noinput
+    
+    # Add your deployment steps here
+    # For example, deploy to AWS, Heroku, DigitalOcean, etc.
+    - name: Deploy to server
+      run: |
+        echo "Add your deployment commands here"
+        echo "This could include:"
+        echo "- Copying files to server"
+        echo "- Running migrations on production"
+        echo "- Restarting web server"
