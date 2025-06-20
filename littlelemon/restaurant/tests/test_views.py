@@ -8,6 +8,6 @@ class MenuViewTest(TestCase):
         
     def test_menu_item_view(self):
         MenuItem.objects.all()
-        response = self.client.get('http://localhost:8000/restaurant/menu')
+        response = self.client.get('/restaurant/menu/')
         self.assertEqual(response.status_code, 200)
         print(response.content)
